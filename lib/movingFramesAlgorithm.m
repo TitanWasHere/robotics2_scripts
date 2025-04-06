@@ -1,4 +1,4 @@
-function [v, w, vc, T] = movingFramesAlgorithm(DH, dq, rc, joint_types)
+function [v, w, vc] = movingFramesAlgorithm(DH, dq, rc, joint_types)
 % movingFramesAlgorithm computes the velocity and acceleration of a
 % manipulator using the moving frames algorithm.
 % Inputs:
