@@ -1,82 +1,116 @@
-function [v, w, vc] = movingFramesAlgorithm(DH, dq, rc, joint_types)
-% movingFramesAlgorithm computes the velocity and acceleration of a
-% manipulator using the moving frames algorithm.
-% Inputs:
-%   DH: Denavit-Hartenberg parameters (Nx4 matrix) [alpha, a, d, theta]
-%   qd: symbolic joint velocities (Nx1 vector)
-%   rc: position of the center of mass of each link(Nx3 vector)
-%   joint_types: types of joints (Nx1 vector) ["r": revolute, "p": prismatic]
-% Outputs:
-%   v: linear velocity of the end-effector (3x1 vector)
-%   w: angular velocity of the end-effector (3x1 vector)
-%   vc: velocity of the center of mass of each link (3xN matrix)
+function [w_all, v_all, vc_all, T, T_tot] = movingFramesAlgorithm(num_joints, DH, qdots, m,  rc, prismatic_indices,I)
+    % This function performs the moving frame algorithm and returns the
+    % vectors w, v, vc, and the values of T for each joint
+    %
+    %inputs:
+    % num_joints= an int reapresenting the number of links o fthe robot
+    %
+    % DH = the DH matrix of the robot in the order [alpha, a, d, theta ]
+    %
+    % qdts = a vector containing qdots ex: [qd1; qd2; qd3]
+    %
+    % m = a vector of masses [m1 ; ... ; mn]
+    %
+    %
+    % rc = a vector containing the values ^ir_{ci} that is the distance
+    % between the i-th CoM from the i-th reference frame
+    %
+    % prismatic indices= a list containing the list of prismatic indices,
+    % ex for a PPR= [1,2]
+    %
+    % I = a vector of 3 by 3 matrices [I1,..,In]
+    %
+    %output:
+    % T{i} where T{1} is the Kinetic energy of the first link, T{2} of the
+    % second ...
 
-    n = size(DH, 1);
-    v = cell(n, 1); 
-    w = cell(n, 1); 
-    T = cell(n, 1);
-    A = cell(n, 1);
-    R = cell(n, 1); 
-    vc = cell(n,1);
-    r = cell(n,1);
-    p = cell(n,1);
-    sigma = cell(n,1);
-    DK = cell(n,1);
-
-    w_prev = zeros(3, 1);
-    v_prev = zeros(3, 1);
+    syms Ixx Iyy Izz real
     
-    T_prev = eye(4);
 
-    for i = 1:n
-        alpha = DH(i, 1);
-        a = DH(i, 2);
-        d = DH(i, 3);
-        theta = DH(i, 4);
 
-        % Compute the transformation matrix
-        T_i = [cos(theta),    -sin(theta)*cos(alpha),     sin(theta)*sin(alpha),  a*cos(theta);
-             sin(theta),    cos(theta)*cos(alpha),      -cos(theta)*sin(alpha), a*sin(theta);
-             0,             sin(alpha),                 cos(alpha),             d;
-             0,             0,                          0,                      1];
-        A{i} = T_i;
-        DK{i} = T_prev * T_i;
-        R{i} = A{i}(1:3, 1:3);
-        p{i} = A{i}(1:3, 4);
+    % Check that the DH is consistent with the indicated number of joints 
+    if size(DH, 1) ~= num_joints
+        error('Number of rows in DH matrix should be equal to the number of joints.');
+    end
+
+
+    % Check that rc is consistent with the number of joints 
+    if size(rc,2) ~= num_joints
+        error('Length of rc vector should be equal to the number of joints.');
+    end
+
+    % Display the number of joints and prismatic indices
+    disp(['Number of joints: ', num2str(num_joints)]);
+    
+
+    %START THE ALGORITHM:
+    v00=[0;0;0]
+    w00=[0;0;0]
+
+    % Initialize outputs
+    w = zeros(3, num_joints);
+    v = zeros(3, num_joints);
+    vc = zeros(3, num_joints);
+    T = cell(num_joints);
+    
+    w_all = cell(num_joints);
+    v_all = cell(num_joints);
+    vc_all = cell(num_joints);
+
+    T_tot = 0;
+    %Start the loop
+    for i = 1:num_joints
+        In=I(1:3,(i-1)*3+1:i*3);
+      
         
-        r{i} = R{i}' * p{i};
-        
-        T_prev = T_i;
-
-        if joint_types(i) == "r" || joint_types(i) == "R"
-            sigma{i} = 0;
-        elseif joint_types(i) == "p" || joint_types(i) == "P"
-            sigma{i} = 1;
+        if ismember(i, prismatic_indices)
+            sigma = 1;
         else
-            error("Invalid joint type. Use 'r' for revolute and 'p' for prismatic.");
+            sigma =0;
         end
+        A=DHMatrix(DH(i,:));
+        R=A(1:3,1:3);
+        p=A(1:3,4);
 
-        z0 = [0; 0; 1];
-        w{i} = simplify(R{i}' * (w_prev + (1 - sigma{i}) * dq(i) * z0));
-        w_prev = w{i};
-
-        v{i} = simplify(R{i}' * (v_prev + sigma{i} * dq(i) * z0) + cross(w{i}, r{i}));
-        v_prev = v{i};
-
-        vc{i} = simplify(v{i} + cross(w{i}, rc(:, i)));
+        r_i=R'*p;
+        % computing omega
+        if i ==1
+            w_prev= w00;
+        else
+            w_prev= wi;
+        end
+        fprintf("LINK [%d] -----------------------------\n", i);
+        wi=R'*(w_prev + (1- sigma)*[0;0;qdots(i)]);
+        wi = simplify(wi);
+        fprintf('the value of w_%d is:\n',i);
+        disp(wi);
+        w_all{i} = wi;
+        % computing v
+        if i ==1
+            v_prev= v00;
+        else
+            v_prev= vi;
+        end 
         
-    end
+        vi=R'*(v_prev + sigma*[0;0;qdots(i)])+ cross(wi,r_i,1);
+        vi = simplify(vi);
+        fprintf('The value of v_%d is:\n', i);
+        disp(vi)
+        v_all{i} = vi;
 
-    for i = 1:n
-        fprintf("Link %d:\n", i);
-        fprintf("Angular velocity (w):\n"); disp(w{i});
-        fprintf("Linear velocity (v):\n"); disp(v{i});
-        fprintf("Velocity of center of mass (vc):\n"); disp(vc{i});
-        fprintf("Rotation matrix (R):\n"); disp(R{i});
-        fprintf("point (r):\n"); disp(r{i});
-        fprintf("cross product (w x r):\n"); disp(cross(w{i}, r{i}));
-        fprintf("Sigma: %d\n", sigma{i});
-        fprintf("\n")
-    end
+        %computing vc
+        vci=vi+cross(wi,rc(:,i));
+        vci = simplify(vci);
+        fprintf('The value of vc_%d is:\n',i);
+        disp(vci)
+        vc_all{i} = vci;
 
+        %computing T
+        Ti=simplify(0.5*m(i)*(vci'*vci)+0.5*wi'*In*wi);
+        fprintf('The value of T_%d is:\n', i);
+        disp(Ti)
+        T{i}=Ti;
+        
+        T_tot = simplify(T_tot + T{i});
+    
 end

@@ -1,8 +1,8 @@
 function [c, C] = inertia_matrix_to_coriolis(M, q, dq)
     % Takes as inputs:
     %   - M = the inertia matrix
-    %   - q = a vertical vector of q values
-    %   - dq = a vertical vector dot_q
+    %   - q = a vertical vector of q values [q1,q2,q3] !! , !!
+    %   - dq = a vertical vector dot_q [q1;q2;q3] !! ; !!
     % Output:
     %   - c = robot centrifugal and Coriolis term
     %   - C = Christoffel matrices
@@ -17,7 +17,7 @@ function [c, C] = inertia_matrix_to_coriolis(M, q, dq)
         disp(['Christoffel matrix for joint ', num2str(i)])
         Mi = M(:, i); % Select the i-th column of the inertia matrix
         Ci = (1/2) * (jacobian(Mi, q) + jacobian(Mi, q)' - diff(M, q(i)));
-        C{i} = Ci; % Store the Christoffel matrix
+        C{i} = simplify(Ci); % Store the Christoffel matrix
         
         % Display the Christoffel matrix
         disp(['C', num2str(i), ' = ']);
@@ -28,7 +28,7 @@ function [c, C] = inertia_matrix_to_coriolis(M, q, dq)
     disp("Robot centrifugal and Coriolis terms")
     c = sym(zeros(n, 1));
     for i = 1:n
-        c(i) = dq' * C{i} * dq;
+        c(i) = simplify(dq' * C{i} * dq);
         disp(['c', num2str(i), ' = ']);
         disp(c(i));
     end
