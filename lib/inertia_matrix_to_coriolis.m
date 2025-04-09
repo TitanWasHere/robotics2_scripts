@@ -1,8 +1,8 @@
 function [c, C] = inertia_matrix_to_coriolis(M, q, dq)
     % Takes as inputs:
     %   - M = the inertia matrix
-    %   - q = a vertical vector of q values [q1,q2,q3] !! , !!
-    %   - dq = a vertical vector dot_q [q1;q2;q3] !! ; !!
+    %   - q = a vertical vector of q values [q1;q2;q3] 
+    %   - dq = a vertical vector dot_q [dq1;dq2;dq3] 
     % Output:
     %   - c = robot centrifugal and Coriolis term
     %   - C = Christoffel matrices

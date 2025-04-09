@@ -13,7 +13,7 @@ function [w_all, v_all, vc_all, T, T_tot] = movingFramesAlgorithm(num_joints, DH
     %
     %
     % rc = a vector containing the values ^ir_{ci} that is the distance
-    % between the i-th CoM from the i-th reference frame
+    % between the i-th CoM from the i-th reference frame [rc1,rc2,...]
     %
     % prismatic indices= a list containing the list of prismatic indices,
     % ex for a PPR= [1,2]
