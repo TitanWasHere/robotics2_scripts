@@ -1,4 +1,4 @@
-function [U, dU_T] = compute_potential_energy_matrix(masses, joint_pos, com_pos, gravity_term, opt_steps)
+function [U, dU_T] = potential_energy(masses, joint_pos, com_pos, gravity_term, opt_steps)
 
     % joint_pos: variable of joint position q_i
     % masses: variable of mass of links
