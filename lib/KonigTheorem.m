@@ -6,6 +6,16 @@ function T = KonigTheorem(m, vc, w, I)
     %
     % Output:
     %   - T = the kinetic energy of the robot 
+    %%
+    %   T = KonigTheorem(m, vc) computes translational kinetic energy only.
+    %   T = KonigTheorem(m, vc, w, I) computes full kinetic energy including rotation.
+    %%
+    T = 0.5 * m * simplify(norm(vc)^2);
 
-    T = 0.5 * m * simplify(norm(vc)^2) + 0.5 * w' * I * w;
+    % Check if rotational terms are provided
+    if nargin == 4
+        T = T + 0.5 * w' * I * w;
+    elseif nargin ~= 2
+        error('❌ Function expects either 2 or 4 input arguments.');
+    end
 end 

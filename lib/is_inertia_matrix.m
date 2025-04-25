@@ -1,39 +1,51 @@
 function is_an_inertia_matrix = is_inertia_matrix(matrix)
-    
-    % Check if the matrix is symmetric
-    if ~isequal(matrix, matrix')
-        error('Matrix is not symmetric');
-    end
-    
-    % Check if the matrix is positive definite
-    % Check determinant
-    if isa(matrix, 'sym')
-        warning('The matrix is symbolic. Please check manually that the determinant is not negative.');
-        disp("determinant:")
-        disp(det(matrix))
-    elseif det(matrix) <= 0
-        is_an_inertia_matrix = false;
-        disp("this matrix is not an inertia matrix since the determinant is negative")
+%IS_INERTIA_MATRIX Validate if a matrix can be an inertia matrix.
+%   Checks symmetry and positive definiteness, with verbose output.
+
+    is_an_inertia_matrix = false;  % Default
+
+    % 1) Symmetry Check
+    if isequal(matrix, matrix.')
+        fprintf('✅ Matrix is symmetric.\n');
+    else
+        fprintf('❌ Matrix is NOT symmetric.\n');
         return;
     end
-    
-    % Compute eigenvalues
-    eigenvalues = eig(matrix);
-    
-    % Check if all eigenvalues are positive
+
+    % 2) Determinant Check
     if isa(matrix, 'sym')
-        warning('The matrix is symbolic. Please check manually that the eigenvalues are all positive.');
-        disp("eigenvalues:")
-        disp(eigenvalues)
+        fprintf('⚠ Matrix is symbolic. Please verify the determinant manually.\n');
+        fprintf('Determinant: ');
+        disp(simplify(det(matrix)));
+    else
+        if det(matrix) > 0
+            fprintf('✅ Determinant is positive.\n');
+        else
+            fprintf('❌ Determinant is non-positive.\n');
+            fprintf('🔴 Invalid inertia matrix (determinant ≤ 0).\n');
+            return;
+        end
+    end
+
+    % 3) Eigenvalue Check
+    eigenvalues = eig(matrix);
+    if isa(matrix, 'sym')
+        fprintf('⚠ Matrix is symbolic. Please verify eigenvalues manually.\n');
+        fprintf('   eigenvalues: \n');
+        disp(simplify(eigenvalues));
         is_an_inertia_matrix = [];
     elseif all(eigenvalues > 0)
+        fprintf('✅ All eigenvalues are positive.\n');
         is_an_inertia_matrix = true;
     else
-        is_an_inertia_matrix = false;
-        disp("this matrix is not an inertia matrix since some eigenvalues are negative")
+        fprintf('❌ Some eigenvalues are non-positive.\n');
+        fprintf('🔴 Invalid inertia matrix (not positive definite).\n');
+        return;
     end
-    
-    if is_an_inertia_matrix == true
-        disp("this is an inertia matrix, remember to check that the matrix is not dependent directly on q1!")
+
+    % Final suggestion
+    if isequal(is_an_inertia_matrix, true)
+        fprintf('\n🟢 Valid inertia matrix.\n');
+        fprintf('🔍 Reminder: Make sure the matrix does not depend directly on q1 (arbitrary coordinate).\n');
     end
 end
