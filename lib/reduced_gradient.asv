@@ -1,0 +1,116 @@
+function q_dot_val = reduced_gradient(J_sym, H_sym, v_val, q_sym, q0_val, alpha)
+% solveReducedGradient Computes joint velocities using the Reduced Gradient method.
+%
+%   q_dot_val = solveReducedGradient(J_sym, H_sym, v_val, q_sym, q0_val)
+%   computes the joint velocity q_dot_val that achieves the Cartesian
+%   velocity v_val while maximizing the objective function H using the
+%   Reduced Gradient method, evaluated at the configuration q0_val.
+%
+%   q_dot_val = solveReducedGradient(J_sym, H_sym, v_val, q_sym, q0_val, alpha)
+%   allows specifying a scaling factor 'alpha' for the gradient-based null
+%   space motion. Use alpha > 0 for maximization, alpha < 0 for
+%   minimization. Defaults to 1 (maximization).
+%
+%   Inputs:
+%       J_sym   - Symbolic Jacobian matrix (m x N).
+%       H_sym   - Symbolic scalar objective function H(q).
+%       v_val   - Numerical desired Cartesian velocity vector (m x 1).
+%       q_sym   - Symbolic vector of joint variables (N x 1).
+%       q0_val  - Numerical current joint configuration vector (N x 1).
+%       alpha   - (Optional) Scalar gain for secondary task (default=1).
+%
+%   Outputs:
+%       q_dot_val - Numerical optimal joint velocity vector (N x 1).
+%
+%   Requires: Symbolic Math Toolbox
+%
+%   Notes:
+%       - Assumes the robot is redundant (N > m).
+%       - Assumes the first m columns of the Jacobian form an invertible
+%         matrix Ja at the configuration q0_val. If not, this function
+%         will error. A more robust implementation might try different
+%         partitions.
+%       - Maximizes H by default (alpha=1). For minimization, use alpha=-1
+%         or provide a negative alpha.
+if nargin < 6
+    alpha = 1.0; % Default gain for maximization
+end
+
+% --- Input Validation ---
+if ~isa(q_sym, 'sym') || ~isa(J_sym, 'sym') || ~isa(H_sym, 'sym')
+    error('Inputs J_sym, H_sym, and q_sym must be symbolic.');
+end
+N = length(q_sym); % Number of joints
+m = size(J_sym, 1); % Dimension of the task space
+
+if N <= m
+    error('Reduced Gradient method requires redundancy (N > m).');
+end
+if size(J_sym, 2) ~= N
+    error('Jacobian columns must match the number of joints.');
+end
+if size(v_val, 1) ~= m || size(v_val, 2) ~= 1
+    error('Velocity vector v_val must be an m x 1 numerical vector.');
+end
+ if size(q0_val, 1) ~= N || size(q0_val, 2) ~= 1
+    error('Configuration vector q0_val must be an N x 1 numerical vector.');
+end
+if ~isscalar(alpha) || ~isnumeric(alpha)
+   error('alpha must be a numeric scalar.');
+end
+
+% --- Symbolic Calculations ---
+% Calculate the gradient of the objective function H
+gradH_sym = gradient(H_sym, q_sym');
+
+% --- Numerical Evaluation ---
+% Substitute the current joint configuration q0_val into symbolic expressions
+try
+    J_val = double(subs(J_sym, q_sym', q0_val'));
+    gradH_val = double(subs(gradH_sym, q_sym', q0_val'));
+catch ME
+    error('Failed to substitute numerical values into symbolic expressions. Ensure q0_val has the correct dimension and q_sym matches variables in J_sym and H_sym. Original error: %s', ME.message);
+end
+
+% --- Partitioning (Assumption: first m columns form Ja) ---
+% A more robust method would select columns ensuring Ja is invertible.
+idx_a = 1:m;       % Indices for dependent joints
+idx_b = (m+1):N;   % Indices for independent joints
+
+J_a = J_val(:, idx_a);
+J_b = J_val(:, idx_b);
+
+% Check if Ja is invertible
+rank_Ja = rank(J_a);
+if rank_Ja < m
+     error('Jacobian partition Ja is singular at the given configuration. Try reordering joints or use a different method.');
+end
+% Optional: Check condition number for numerical stability
+cond_Ja = cond(J_a);
+if cond_Ja > 1e8 % Threshold can be adjusted
+    warning('Jacobian partition Ja is ill-conditioned (cond = %e). Results may be inaccurate.', cond_Ja);
+end
+
+% --- Reduced Gradient Calculation ---
+% Calculate how dependent joints change w.r.t independent ones
+dqadqb = -J_a \ J_b; % More stable than inv(J_a) * J_b
+
+% Partition the gradient vector
+gradH_a = gradH_val(idx_a);
+gradH_b = gradH_val(idx_b);
+
+% Calculate the reduced gradient
+gradH_prime = dqadqb' * gradH_a + gradH_b;
+
+% --- Calculate Joint Velocities ---
+% 1. Independent velocities (secondary task: optimize H)
+%    Choose q_dot_b proportional to the reduced gradient
+q_dot_b = alpha * gradH_prime;
+
+% 2. Dependent velocities (determined by primary task + q_dot_b)
+q_dot_a = J_a \ (v_val - J_b * q_dot_b);
+
+% --- Reassemble the full joint velocity vector ---
+q_dot_val = zeros(N, 1);
+q_dot_val(idx_a) = q_dot_a;
+q_dot_val(idx_b) = q_dot_b;
